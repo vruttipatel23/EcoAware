@@ -1,24 +1,16 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 
+st.set_page_config(
+    page_title="EcoAware",
+    page_icon="🌍",
+    layout="wide",
+)
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("Carbon Emission.csv")
-
-    # Match notebook preprocessing
-    df["Vehicle Type"] = df["Vehicle Type"].fillna("No Vehicle")
-
-    q1 = df["CarbonEmission"].quantile(0.25)
-    q3 = df["CarbonEmission"].quantile(0.75)
-    iqr = q3 - q1
-    lower = q1 - 1.5 * iqr
-    upper = q3 + 1.5 * iqr
-    df = df[(df["CarbonEmission"] >= lower) & (df["CarbonEmission"] <= upper)]
-
-    return df
+    return pd.read_csv("cleaned_carbon_data.csv")
 
 
 @st.cache_resource
@@ -29,215 +21,313 @@ def load_model():
 df = load_data()
 model = load_model()
 
+st.title("🌍 EcoAware - Carbon Footprint Estimator")
 
-st.set_page_config(
-    page_title="Full Carbon Emission Assistant",
-    page_icon="🌍",
-    layout="wide",
+st.caption(
+    "Estimate your carbon footprint based on everyday habits like travel, diet, and energy use"
 )
 
-# Top layout
-header_col, kpi_col2, kpi_col3 = st.columns([2, 1, 1])
+st.write("")
 
-st.title("🌍EcoAware - Carbon Emission Assistant")
-st.write(
-    "Fill in the details below to estimate your yearly carbon emissions and "
-    "see where small lifestyle changes could have the biggest impact."
-)
+with st.form("carbon_form"):
+    col1, col2, col3, col4 = st.columns([1.1, 1.1, 1.1, 1])
 
-st.markdown("### Please Enter Your household and habits")
-
-with st.form("carbon_form_full"):
-    col1, col2, col3, col4 = st.columns(4)
-
+    # Travel & Transport 
     with col1:
-        st.markdown("#### Basics")
-        body_type = st.selectbox("Body type", sorted(df["Body Type"].unique()))
-        sex = st.selectbox("Sex", sorted(df["Sex"].unique()))
-        diet = st.selectbox("Diet", sorted(df["Diet"].unique()))
-        shower = st.selectbox(
-            "How often do you shower?", df["How Often Shower"].unique()
-        )
-        heating = st.selectbox(
-            "Main heating energy source", sorted(df["Heating Energy Source"].unique())
+
+        st.markdown("### 🚗 Travel & Transport")
+        st.caption("Your mobility and travel habits")
+
+        transport = st.selectbox(
+            "Main daily transport",
+            sorted(df["Transport"].unique())
         )
 
-    with col2:
-        st.markdown("#### Transport & travel")
-        transport = st.selectbox(
-            "Main daily transport mode", sorted(df["Transport"].unique())
-        )
         vehicle_type = st.selectbox(
-            "Vehicle type", sorted(df["Vehicle Type"].unique())
+            "Vehicle fuel type",
+            ["Not sure"] + sorted(df["Vehicle Type"].unique())
         )
+
         vehicle_km = st.number_input(
             "Vehicle distance per month (km)",
             min_value=0,
             max_value=int(df["Vehicle Monthly Distance Km"].max()),
             value=int(df["Vehicle Monthly Distance Km"].median()),
         )
+
         air = st.selectbox(
-            "How often do you travel by air?",
-            df["Frequency of Traveling by Air"].unique(),
-        )
-        social = st.selectbox(
-            "How often do you go out socially?", df["Social Activity"].unique()
+            "Air travel frequency",
+            sorted(df["Frequency of Traveling by Air"].unique())
         )
 
-    with col3:
-        st.markdown("#### Home, waste & media")
+    # Home & Energy 
+    with col2:
+        st.markdown("### 🏠 Home & Energy")
+        st.caption("Household energy and waste habits")
 
-        grocery = st.number_input(
-            "Monthly grocery bill (your currency)",
-            min_value=0,
-            max_value=5000,
-            value=int(df["Monthly Grocery Bill"].median()),
-            step=10,
-        )
-        waste_size = st.selectbox(
-            "Typical waste bag size", df["Waste Bag Size"].unique()
-        )
         waste_count = st.number_input(
-            "Waste bags per week",
+            "Garbage bags per week",
             min_value=0,
             max_value=int(df["Waste Bag Weekly Count"].max()),
             value=int(df["Waste Bag Weekly Count"].median()),
         )
 
-        tv_hours = st.number_input(
-            "TV / computer hours per day",
-            min_value=0,
-            max_value=int(df["How Long TV PC Daily Hour"].max()),
-            value=int(df["How Long TV PC Daily Hour"].median()),
+        waste_size = st.selectbox(
+            "Garbage bag size",
+            sorted(df["Waste Bag Size"].unique())
+        )        
+
+        heating = st.selectbox(
+            "Heating energy source",
+            sorted(df["Heating Energy Source"].unique())
         )
-        internet_hours = st.number_input(
-            "Internet use hours per day",
-            min_value=0,
-            max_value=int(df["How Long Internet Daily Hour"].max()),
-            value=int(df["How Long Internet Daily Hour"].median()),
+        recycling = st.selectbox(
+                "Recycling habits",
+                ["Not sure"] + sorted(df["Recycling"].unique())
         )
 
-    with col4:
-        st.markdown("#### Energy & recycling ")
+    # Consumption 
+    with col3:
+        st.markdown("### 🛒 Consumption & Lifestyle")
+        st.caption("Daily consumption and purchasing habits")
+
+        diet = st.selectbox(
+            "Diet type",
+            sorted(df["Diet"].unique())
+        )
+
+        cooking_with = st.selectbox(
+            "Cooking method",
+            sorted(df["Cooking_With"].unique())
+        )
+
+        grocery = st.number_input(
+            "Monthly grocery spending ($)",
+            min_value=0,
+            max_value=int(df["Monthly Grocery Bill"].max()),
+            value=int(df["Monthly Grocery Bill"].median()),
+        )
+
         clothes = st.number_input(
-            "New clothing items / month",
+            "Clothing items per month",
             min_value=0,
             max_value=int(df["How Many New Clothes Monthly"].max()),
             value=int(df["How Many New Clothes Monthly"].median()),
         )
-        recycling = st.selectbox("Recycling habits", df["Recycling"].unique())
 
-        efficiency = st.selectbox(
-            "Home energy efficiency", df["Energy efficiency"].unique()
-        )
+    # Additional Info 
+    with col4:
+        st.markdown("### 👤 Additional Info")
+        st.caption("Optional details to improve prediction")
 
-        cooking_with = st.selectbox(
-            "Main cooking appliances", df["Cooking_With"].unique()
-        )
+        with st.expander("Add additional information"):
 
-    submitted = st.form_submit_button("🔍 Calculate my footprint")
+            sex = st.selectbox(
+                "Gender",
+                ["Prefer not to say"] + sorted(df["Sex"].unique())
+            )
+
+            body_type = st.selectbox(
+                "Body type",
+                ["Prefer not to say"] + sorted(df["Body Type"].unique())
+            )
+
+            social = st.selectbox(
+                "Social activity",
+                ["Not sure"] + sorted(df["Social Activity"].unique())
+            )
+            efficiency = st.selectbox(
+            "Energy efficiency",
+            ["Not sure"] + sorted(df["Energy efficiency"].unique())
+            )
+
+            shower = st.selectbox(
+                "Shower frequency",
+                sorted(df["How Often Shower"].unique())
+            )
+
+            tv_hours = st.number_input(
+                "TV / computer hours per day",
+                min_value=0,
+                max_value=int(df["How Long TV PC Daily Hour"].max()),
+                value=int(df["How Long TV PC Daily Hour"].median()),
+            )
+
+            internet_hours = st.number_input(
+                "Internet hours per day",
+                min_value=0,
+                max_value=int(df["How Long Internet Daily Hour"].max()),
+                value=int(df["How Long Internet Daily Hour"].median()),
+            )
+            
+    st.write("")
+    st.write("")
+
+    col_submit1, col_submit2, col_submit3 = st.columns([2, 1, 2])
+    with col_submit2:
+        submitted = st.form_submit_button("🔍 Calculate My Carbon Footprint")
+
+# Prediction 
 
 if submitted:
-    user_row = {
-        "Body Type": body_type,
-        "Sex": sex,
-        "Diet": diet,
-        "How Often Shower": shower,
-        "Heating Energy Source": heating,
+    default_row = {}
+
+    for col in df.columns:
+        if col == "CarbonEmission":
+            continue
+        if df[col].dtype == "object":
+            default_row[col] = df[col].mode()[0]
+        else:
+            default_row[col] = df[col].median()
+
+    user_inputs = {
         "Transport": transport,
         "Vehicle Type": vehicle_type,
-        "Social Activity": social,
-        "Monthly Grocery Bill": grocery,
-        "Frequency of Traveling by Air": air,
         "Vehicle Monthly Distance Km": vehicle_km,
-        "Waste Bag Size": waste_size,
-        "Waste Bag Weekly Count": waste_count,
-        "How Long TV PC Daily Hour": tv_hours,
+        "Frequency of Traveling by Air": air,
+        "Heating Energy Source": heating,
+        "Diet": diet,
         "How Many New Clothes Monthly": clothes,
-        "How Long Internet Daily Hour": internet_hours,
-        "Energy efficiency": efficiency,
-        "Recycling": recycling,
+        "Monthly Grocery Bill": grocery,
+        "Waste Bag Weekly Count": waste_count,
+        "Waste Bag Size": waste_size,
         "Cooking_With": cooking_with,
+        "Sex": sex,
+        "Body Type": body_type,
+        "Social Activity": social,
+        "How Often Shower": shower,
+        "How Long TV PC Daily Hour": tv_hours,
+        "How Long Internet Daily Hour": internet_hours,
+        "Recycling": recycling,
+        "Energy efficiency": efficiency,
     }
 
-    user_df = pd.DataFrame([user_row])
+    for key, value in user_inputs.items():
+        if value not in ["Not sure", "Prefer not to say"]:
+            default_row[key] = value
+
+    user_df = pd.DataFrame([default_row])
+
     pred = float(model.predict(user_df)[0])
 
-    low_thr = df["CarbonEmission"].quantile(0.33)
-    mid_thr = df["CarbonEmission"].quantile(0.66)
+    # Results     
+    st.markdown("## 📊 Your Estimated Carbon Footprint")
 
-    if pred <= low_thr:
-        level = "Low"
-    elif pred <= mid_thr:
-        level = "Moderate"
-    else:
-        level = "High"
+    percentile = (df["CarbonEmission"] < pred).mean() * 100
+    score = max(0, 100 - percentile)
 
-    col_a, col_b = st.columns(2)
+    colA, colB, colC = st.columns(3)
 
-    with col_a:
-        st.subheader("🌍 Your estimated emissions")
-        st.metric("Predicted carbon emission", f"{pred:.2f} units")
-        st.caption(f"Dataset average: {df['CarbonEmission'].mean():.2f} units")
+    with colA:
+        st.metric("Estimated carbon emission", f"{pred:.2f}")
 
-    with col_b:
-        st.subheader("📊 Emission level")
-        st.metric("Category", level)
-        percentile = (df["CarbonEmission"] < pred).mean() * 100
-        st.caption(
-            f"You emit more than roughly {percentile:.0f}% of people in this dataset."
+    with colB:
+        st.metric("Compared with dataset", f"Higher than {percentile:.0f}%")
+
+    with colC:
+        st.metric("Sustainability Score", f"{score:.0f}/100")
+
+    st.caption(f"Average emission in dataset: {df['CarbonEmission'].mean():.2f}")
+
+    if score >= 80:
+        st.success("🌟 Excellent! Your lifestyle appears to have a relatively low carbon impact.")
+
+    elif score >= 60:
+        st.info(
+            "👍 Your carbon footprint is moderate. "
+            "A few small lifestyle adjustments could reduce it further."
         )
 
-    st.markdown("### 📌 Personalised recommendations")
+    elif score >= 40:
+        st.warning(
+            "⚠️ Your estimated carbon footprint is higher than average. "
+            "Some lifestyle changes could significantly reduce your emissions."
+        )
+
+    else:
+        st.error(
+            "🚨 Your estimated carbon footprint is quite high compared to most users. "
+            "Reducing travel emissions and improving household efficiency could make a large difference."
+        )
+
+    # Recommendation 
+    st.markdown("---")
+    st.markdown("## 🌱 Ways to Reduce Your Carbon Footprint")
 
     tips = []
 
-    if vehicle_km > df["Vehicle Monthly Distance Km"].median():
+    if vehicle_km > df["Vehicle Monthly Distance Km"].quantile(0.75):
+
         if transport == "private":
             tips.append(
-                "Try to reduce private car travel by combining trips, using public "
-                "transport where possible, or walking/cycling for short distances."
+                "🚗 Your driving distance is higher than most users. "
+                "Reducing car trips or carpooling can significantly lower emissions."
             )
-        elif transport == "public":
-            tips.append(
-                "You already use public transport often. Look for any remaining car "
-                "trips and see if they can be shifted to transit, walking or cycling."
-            )
+
         else:
             tips.append(
-                "Your main mode is walking/cycling, which is great. For occasional "
-                "car trips, consider sharing rides and combining errands."
+                "🚗 Your travel distance is relatively high. "
+                "Combining trips or using low-carbon transport options could help."
             )
 
     if air in ["frequently", "very frequently"]:
         tips.append(
-            "Consider cutting one flight per year or replacing short flights with "
-            "train/bus travel when available."
+            "✈️ Air travel contributes heavily to carbon emissions. "
+            "Reducing flights when possible can make a large impact."
         )
 
-    if clothes > df["How Many New Clothes Monthly"].median():
+    if clothes > df["How Many New Clothes Monthly"].quantile(0.75):
         tips.append(
-            "Reduce fast-fashion purchases; buy fewer, higher-quality items, and "
-            "reuse or repair clothes where possible."
+            "👕 Buying clothing more frequently than average increases environmental impact. "
+            "Choosing durable clothes and buying fewer items can reduce emissions."
         )
 
-    if waste_count > df["Waste Bag Weekly Count"].median():
+    if grocery > df["Monthly Grocery Bill"].quantile(0.5)and diet == "omnivore":
         tips.append(
-            "Improve waste sorting and recycling so that general rubbish shrinks to "
-            "fewer, smaller bags per week."
+            "🛒 Higher consumption levels can increase environmental impact. "
+            "Reducing food waste and choosing sustainable products may help."
+        )
+
+    if waste_count > df["Waste Bag Weekly Count"].quantile(0.75):
+        tips.append(
+            "🗑 Your household waste is higher than average. "
+            "Reducing single-use products and improving waste separation can help."
+        )
+
+    if recycling == "Not sure":
+        tips.append(
+            "♻️ Improving recycling habits can reduce landfill waste and environmental impact."
         )
 
     if efficiency == "No":
         tips.append(
-            "Look into basic home efficiency upgrades such as LED bulbs, better "
-            "insulation and careful thermostat use."
+            "💡 Improving home energy efficiency (LED lighting, efficient appliances) "
+            "can significantly reduce household emissions."
+        )
+
+    if tv_hours > df["How Long TV PC Daily Hour"].quantile(0.75):
+        tips.append(
+            "💻 High screen time increases electricity consumption. "
+            "Turning devices off when not in use can help reduce energy use."
         )
 
     if not tips:
-        st.success(
-            "Your lifestyle already looks relatively low-impact in this model. "
-            "Keep focusing on low-carbon transport, efficient energy use and low waste."
-        )
+        if score >= 80:
+            st.success(
+                "🌱 Great job! Your lifestyle already appears environmentally friendly."
+            )
+        elif score >= 60:
+            st.info(
+                "🌍 Your footprint is moderate. Small improvements in transport, energy use, "
+                "or consumption could help reduce it further."
+            )
+
+        else:
+            st.warning(
+                "🌱 Your footprint is higher than average. Reviewing transportation habits, "
+                "energy efficiency, and waste reduction strategies could help."
+            )
     else:
-        for t in tips:
-            st.markdown(f"- ✅ {t}")
+        st.info("Here are some areas where small changes could help")
+        for tip in tips:
+            st.markdown(f"- {tip}")    
